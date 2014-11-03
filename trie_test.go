@@ -43,6 +43,37 @@ func (_ *TrieTests) ItemsWithDeepSamePrefixes() {
 	assertResult(t, "", "bass", 4)
 }
 
+func Benchmark_Load(b *testing.B) {
+	trie := New(Configure())
+	for i := 0; i < b.N; i++ {
+		trie.Insert(randomWord(), i)
+	}
+}
+
+func Benchmark_FindSmall(b *testing.B) {
+	benchmarkSize(b, 25000)
+}
+
+func Benchmark_FindMedium(b *testing.B) {
+	benchmarkSize(b, 250000)
+}
+
+func Benchmark_FindLarge(b *testing.B) {
+	benchmarkSize(b, 2500000)
+}
+
+func benchmarkSize(b *testing.B, size int) {
+	trie := New(Configure())
+	for i := 0; i < size; i++ {
+		trie.Insert(randomWord(), i)
+	}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		result := trie.Find(randomPrefix())
+		result.Release()
+	}
+}
+
 func assertResult(t *Trie, fixed string, token string, ids ...int) {
 	for i, l := 1, len(token); i <= l; i++ {
 		prefix := fixed + token[:i]
