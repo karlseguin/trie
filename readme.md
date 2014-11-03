@@ -1,6 +1,6 @@
 # Trie
 
-A trie aimed at being memory efficient and fast. It currently stores 2.5 million items, having an average length of 16 characters, using 6.7MB. A query for a key takes 23μs.
+A trie aimed at being memory efficient and fast. It currently stores 2.5 million items, having an average length of 16 characters, using 6.3MB. A query for a key takes 23μs.
 
 ## Status
 
