@@ -2,6 +2,7 @@ package trie
 
 import (
 	"fmt"
+	"strings"
 	"github.com/karlseguin/scratch"
 )
 
@@ -114,26 +115,35 @@ func (t *Trie) Find(prefix string) Result {
 	}
 
 	node, exists := t.root, false
-	parent := node
+	grand, parent := node, node
 	i, l := 0, len(prefix)
 	for ; i < l; i++ {
 		if node, exists = node.nodes[prefix[i]]; exists == false {
 			break
 		}
+		grand, parent = parent, node
 		parent = node
 	}
 	if exists == false {
-		if i == l-1 {
-			if leaf, exists := parent.leafs[prefix[i]]; exists {
-				result := t.results.Checkout()
-				result.Add(leaf.id)
-				return result
-			}
+		leaf, exists := parent.leafs[prefix[i]]
+		if exists == false {
+			return EmptyResult
+		}
+		if strings.HasPrefix(leaf.suffix, prefix[i+1:]) {
+			result := t.results.Checkout()
+			result.Add(leaf.id)
+			return result
 		}
 		return EmptyResult
 	}
 
+
 	result := t.results.Checkout()
+	if i == l {
+		if leaf, exists := grand.leafs[prefix[l-1]]; exists && len(leaf.suffix) == 0 {
+			result.Add(leaf.id)
+		}
+	}
 	populate(node, result)
 	return result
 }
