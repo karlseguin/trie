@@ -3,13 +3,13 @@ package trie
 // Configuration for the trie. Initiate using Configure()
 type Configuration struct {
 	resultPoolCount int
-	maxResults int
+	maxResults      int
 }
 
 // Initiate a configuration with sensible defaults
 func Configure() *Configuration {
 	return &Configuration{
-		maxResults: 20,
+		maxResults:      20,
 		resultPoolCount: 32,
 	}
 }

@@ -2,8 +2,8 @@ package trie
 
 import (
 	"fmt"
-	"strings"
 	"github.com/karlseguin/scratch"
+	"strings"
 )
 
 type Leaf struct {
@@ -21,13 +21,13 @@ func newNode() *Node {
 }
 
 type Trie struct {
-	root *Node
+	root    *Node
 	results *scratch.IntsPool
 }
 
 func New(c *Configuration) *Trie {
 	return &Trie{
-		root: newNode(),
+		root:    newNode(),
 		results: scratch.NewInts(c.maxResults, c.resultPoolCount),
 	}
 }
@@ -135,7 +135,6 @@ func (t *Trie) Find(prefix string) Result {
 		return EmptyResult
 	}
 
-
 	result := t.results.Checkout()
 	if i == l {
 		if leaf, exists := grand.leafs[prefix[l-1]]; exists && len(leaf.suffix) == 0 {
@@ -166,7 +165,6 @@ func (n *Node) addLeaf(value string, index int, id int) {
 	}
 	n.leafs[value[index]] = &Leaf{id, value[index+1:]}
 }
-
 
 func (n *Node) addNode(b byte, node *Node) {
 	if n.nodes == nil {

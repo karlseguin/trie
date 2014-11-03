@@ -16,7 +16,7 @@ type Result interface {
 // An empty result
 var EmptyResult empty
 
-type empty struct {}
+type empty struct{}
 
 func (_ empty) Len() int {
 	return 0
@@ -28,5 +28,3 @@ func (_ empty) Ids() []int {
 
 func (_ empty) Release() {
 }
-
-
