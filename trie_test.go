@@ -30,12 +30,17 @@ func (_ *TrieTests) ItemsWithSamePrefixes() {
 func (_ *TrieTests) ItemsWithDeepSamePrefixes() {
 	t := New(Configure())
 	t.Insert("apply", 1)
+	t.Insert("aptitude", 5)
 	t.Insert("apple", 2)
 	t.Insert("applicable", 3)
-	assertResult(t, "", "appl", 1, 2, 3)
+	t.Insert("bass", 4)
+	assertResult(t, "ap", "pl", 1, 2, 3)
 	assertResult(t, "appl", "y", 1)
 	assertResult(t, "appl", "e", 2)
 	assertResult(t, "appl", "icable", 3)
+	assertResult(t, "", "ap", 1, 2, 3, 5)
+	assertResult(t, "ap", "titude", 5)
+	assertResult(t, "", "bass", 4)
 }
 
 func assertResult(t *Trie, fixed string, token string, ids ...int) {
@@ -61,7 +66,7 @@ func assertResult(t *Trie, fixed string, token string, ids ...int) {
 		result.Release()
 	}
 
-	for _, extra := range []string{"!", "_", token[len(token)-1:]} {
+	for _, extra := range []string{"!", "_", "z"} {
 		prefix := fixed + token + extra
 		result := t.Find(prefix)
 		Expect(result.Len()).To.Equal(0).Message("Expected 0 result for %q", prefix)
