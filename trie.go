@@ -17,9 +17,7 @@ type Node struct {
 }
 
 func newNode() *Node {
-	return &Node{
-		nodes: make(map[byte]*Node),
-	}
+	return &Node{}
 }
 
 type Trie struct {
@@ -52,7 +50,7 @@ func (t *Trie) Insert(value string, id int) {
 				break
 			}
 			node = newNode()
-			parent.nodes[c] = node
+			parent.addNode(c, node)
 
 			ls := len(leaf.suffix)
 			if ls == 0 {
@@ -73,7 +71,7 @@ func (t *Trie) Insert(value string, id int) {
 			for ; j < ls && j < lv && suffix[j] == value[j]; j++ {
 				parent = node
 				node = newNode()
-				parent.nodes[suffix[j]] = node
+				parent.addNode(suffix[j], node)
 			}
 			if j != lv {
 				node.addLeaf(value, j, id)
@@ -167,4 +165,12 @@ func (n *Node) addLeaf(value string, index int, id int) {
 		n.leafs = make(map[byte]*Leaf)
 	}
 	n.leafs[value[index]] = &Leaf{id, value[index+1:]}
+}
+
+
+func (n *Node) addNode(b byte, node *Node) {
+	if n.nodes == nil {
+		n.nodes = make(map[byte]*Node)
+	}
+	n.nodes[b] = node
 }
