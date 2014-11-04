@@ -12,12 +12,8 @@ type Leaf struct {
 }
 
 type Node struct {
-	leafs map[byte]*Leaf
+	leafs map[byte]Leaf
 	nodes map[byte]*Node
-}
-
-func newNode() *Node {
-	return &Node{}
 }
 
 type Trie struct {
@@ -27,7 +23,7 @@ type Trie struct {
 
 func New(c *Configuration) *Trie {
 	return &Trie{
-		root:    newNode(),
+		root:    &Node{},
 		results: scratch.NewInts(c.maxResults, c.resultPoolCount),
 	}
 }
@@ -49,8 +45,7 @@ func (t *Trie) Insert(value string, id int) {
 				leaf.id = id
 				break
 			}
-			node = newNode()
-			parent.addNode(c, node)
+			node = parent.addNode(c)
 
 			ls := len(leaf.suffix)
 			if ls == 0 {
@@ -61,7 +56,7 @@ func (t *Trie) Insert(value string, id int) {
 			suffix, value := leaf.suffix, value[i+1:]
 			lv := len(value)
 			if lv == 0 {
-				parent.leafs[c] = &Leaf{id, ""}
+				parent.leafs[c] = Leaf{id, ""}
 				node.addLeaf(suffix, 0, leaf.id)
 				break
 			}
@@ -70,8 +65,7 @@ func (t *Trie) Insert(value string, id int) {
 			j := 0
 			for ; j < ls && j < lv && suffix[j] == value[j]; j++ {
 				parent = node
-				node = newNode()
-				parent.addNode(suffix[j], node)
+				node = parent.addNode(suffix[j])
 			}
 			if j != lv {
 				node.addLeaf(value, j, id)
@@ -85,9 +79,9 @@ func (t *Trie) Insert(value string, id int) {
 			}
 		} else {
 			if parent.leafs == nil {
-				parent.leafs = make(map[byte]*Leaf)
+				parent.leafs = make(map[byte]Leaf)
 			}
-			parent.leafs[c] = &Leaf{id, value[i+1:]}
+			parent.leafs[c] = Leaf{id, value[i+1:]}
 		}
 		break
 	}
@@ -161,14 +155,16 @@ func populate(node *Node, result *scratch.Ints) bool {
 
 func (n *Node) addLeaf(value string, index int, id int) {
 	if n.leafs == nil {
-		n.leafs = make(map[byte]*Leaf)
+		n.leafs = make(map[byte]Leaf)
 	}
-	n.leafs[value[index]] = &Leaf{id, value[index+1:]}
+	n.leafs[value[index]] = Leaf{id, value[index+1:]}
 }
 
-func (n *Node) addNode(b byte, node *Node) {
+func (n *Node) addNode(b byte) *Node {
 	if n.nodes == nil {
 		n.nodes = make(map[byte]*Node)
 	}
+	node := &Node{}
 	n.nodes[b] = node
+	return node
 }
