@@ -6,6 +6,8 @@ import (
 	"strings"
 )
 
+var noLeaf = Leaf{}
+
 type Leaf struct {
 	id     int
 	key    byte
@@ -13,8 +15,9 @@ type Leaf struct {
 }
 
 type Node struct {
+	key   byte
 	leafs []Leaf
-	nodes map[byte]*Node
+	nodes []*Node
 }
 
 type Trie struct {
@@ -37,7 +40,7 @@ func (t *Trie) Insert(value string, id int) {
 	for i := 0; i < len(value); i++ {
 		c := value[i]
 		parent := node
-		node, exists = node.nodes[c]
+		node, exists = node.findNode(c)
 		if exists {
 			continue
 		}
@@ -95,8 +98,8 @@ func Dump(n *Node, prefix string) {
 	for _, value := range n.leafs {
 		fmt.Println(prefix, string(value.key), "=>", value.suffix, value.id)
 	}
-	for k, node := range n.nodes {
-		fmt.Println(prefix, string(k), "->")
+	for _, node := range n.nodes {
+		fmt.Println(prefix, string(node.key), "->")
 		Dump(node, prefix+"   ")
 	}
 }
@@ -109,7 +112,7 @@ func (t *Trie) Stats() {
 }
 
 func Stats(n *Node, stats map[int]int) {
-	leafs := len(n.nodes)
+	leafs := cap(n.nodes)
 	if _, exists := stats[leafs]; exists == false {
 		stats[leafs] = 0
 	}
@@ -128,7 +131,7 @@ func (t *Trie) Find(prefix string) Result {
 	grand, parent := node, node
 	i, l := 0, len(prefix)
 	for ; i < l; i++ {
-		if node, exists = node.nodes[prefix[i]]; exists == false {
+		if node, exists = node.findNode(prefix[i]); exists == false {
 			break
 		}
 		grand, parent = parent, node
@@ -178,7 +181,6 @@ func (n *Node) addLeaf(value string, index int, id int) {
 	n.leafs = append(n.leafs, Leaf{id, value[index], value[index+1:]})
 }
 
-
 func (n *Node) findLeaf(c byte) (Leaf, bool) {
 	for i, l := 0, len(n.leafs); i < l; i++ {
 		leaf := n.leafs[i]
@@ -186,7 +188,7 @@ func (n *Node) findLeaf(c byte) (Leaf, bool) {
 			return leaf, true
 		}
 	}
-	return Leaf{}, false
+	return noLeaf, false
 }
 
 func (n *Node) deleteLeaf(c byte) {
@@ -202,9 +204,19 @@ func (n *Node) deleteLeaf(c byte) {
 
 func (n *Node) addNode(b byte) *Node {
 	if n.nodes == nil {
-		n.nodes = make(map[byte]*Node)
+		n.nodes = make([]*Node, 0, 1)
 	}
-	node := &Node{}
-	n.nodes[b] = node
+	node := &Node{key: b}
+	n.nodes = append(n.nodes, node)
 	return node
+}
+
+func (n *Node) findNode(c byte) (*Node, bool) {
+	for i, l := 0, len(n.nodes); i < l; i++ {
+		node := n.nodes[i]
+		if node.key == c {
+			return node, true
+		}
+	}
+	return nil, false
 }
