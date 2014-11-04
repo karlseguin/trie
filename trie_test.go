@@ -43,6 +43,19 @@ func (_ *TrieTests) ItemsWithDeepSamePrefixes() {
 	assertResult(t, "", "bass", 4)
 }
 
+func (_ *TrieTests) Unicode() {
+	t := New(Configure())
+	t.Insert("☄hello", 1)
+	t.Insert("☺hello", 2)
+	t.Insert("☺happy", 3)
+	t.Insert("☺smile", 4)
+	assertResult(t, "", "☄hello", 1)
+	assertResult(t, "", "☺", 2, 3, 4)
+	assertResult(t, "☺", "h", 2, 3)
+	assertResult(t, "☺h", "ello", 2)
+	assertResult(t, "☺", "smile", 4)
+}
+
 func Benchmark_Load(b *testing.B) {
 	trie := New(Configure())
 	for i := 0; i < b.N; i++ {
@@ -75,8 +88,9 @@ func benchmarkSize(b *testing.B, size int) {
 }
 
 func assertResult(t *Trie, fixed string, token string, ids ...int) {
-	for i, l := 1, len(token); i <= l; i++ {
-		prefix := fixed + token[:i]
+	runes := []rune(token)
+	for i, l := 1, len(runes); i <= l; i++ {
+		prefix := fixed + string(runes[:i])
 		result := t.Find(prefix)
 		Expect(result.Len()).To.Equal(len(ids)).Message("Expected %d results for %q, got %d", len(ids), prefix, result.Len())
 
