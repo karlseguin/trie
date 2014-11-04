@@ -33,60 +33,101 @@ func New(c *Configuration) *Trie {
 }
 
 func (t *Trie) Insert(value string, id int) {
-	if len(value) == 0 {
+	l := len(value)
+	if l == 0 {
 		return
 	}
 	node, exists := t.root, false
-	for i := 0; i < len(value); i++ {
-		c := value[i]
-		parent := node
+	for i := 0; i < l; i++ {
+		c, parent := value[i], node
 		node, exists = node.findNode(c)
+		// keep going down until we find our leaf
 		if exists {
 			continue
 		}
-		if leaf, index := parent.findLeaf(c); index != -1 {
-			if leaf.suffix == value[i+1:] {
-				leaf.id = id
-				break
-			}
-			node = parent.addNode(c)
 
-			ls := len(leaf.suffix)
-			if ls == 0 {
-				node.addLeaf(value, 0, id)
-				break
-			}
-
-			suffix, value := leaf.suffix, value[i+1:]
-			lv := len(value)
-			if lv == 0 {
-				parent.leafs[index] = Leaf{id, c, ""}
-				node.addLeaf(suffix, 0, leaf.id)
-				break
-			}
-			parent.deleteLeaf(c)
-			j := 0
-			for ; j < ls && j < lv && suffix[j] == value[j]; j++ {
-				parent = node
-				node = parent.addNode(suffix[j])
-			}
-			if j != lv {
-				node.addLeaf(value, j, id)
-			} else {
-				parent.addLeaf(value, j-1, id)
-			}
-			if j != ls {
-				node.addLeaf(suffix, j, leaf.id)
-			} else if ls != 0 {
-				parent.addLeaf(suffix, j-1, leaf.id)
-			}
-		} else {
-			if parent.leafs == nil {
-				parent.leafs = make([]Leaf, 0, 1)
-			}
+		// no leaf exists with our prefix, so we become the leaf
+		leaf, index := parent.findLeaf(c)
+		if index == -1 {
 			parent.addLeaf(value[i:], 0, id)
+			return
 		}
-		break
+
+		// There's already a leaf with our prefix, we'll need
+		// to convert it to a node (a node for each byte we have in common in our prefix)
+
+		// TODO: an exact leaf already exists, append, don't replace!
+		if leaf.suffix == value[i+1:] {
+			leaf.id = id
+			return
+		}
+
+		// add the first node
+		node = parent.addNode(c)
+
+		// the previous leaf was a word-stop
+		// it'll stay where it is, and we'll become a leaf of the newly created node
+		// "up", "upside"
+		//  u ->
+		//     p => ""  // word-stop has to stay a leaf of its existing node
+		//     p ->     // the new node we just created
+		//        p => side
+		ls := len(leaf.suffix)
+		if ls == 0 {
+			node.addLeaf(value, 0, id)
+			return
+		}
+
+    // our new value is at a word-stop
+    // this is the opposite of the previous case
+    // the previous leaf goes into a node, we become the new leaf
+		// "upside", "up"
+		// (the end-result is the same as the above)
+		suffix, value := leaf.suffix, value[i+1:]
+		lv := len(value)
+		if lv == 0 {
+			parent.leafs[index] = Leaf{id, c, ""}
+			node.addLeaf(suffix, 0, leaf.id)
+			return
+		}
+
+		// the current leaf is going to get moved down to a node
+		// (at least 1 node, possibly more, but it certainly doesn't
+		// belong here)
+		parent.deleteLeaf(c)
+
+		// create a node for each byte that the current leaf and our
+		// new value have in common. For example:
+		// "apple", "apply"
+		// a ->
+		//    p ->
+		//       p ->
+		//           l ->
+		//                //this is where we want to be
+		j := 0
+		for ; j < ls && j < lv && suffix[j] == value[j]; j++ {
+			parent = node
+			node = parent.addNode(suffix[j])
+		}
+
+		// we still have more bytes left in our value
+		// so it's a leaf of the last node
+		// else it'll be a leaf of the previous node (with an empty suffix)
+		if j != lv {
+			node.addLeaf(value, j, id)
+		} else {
+			parent.addLeaf(value, j-1, id)
+		}
+
+		// we still have more bytes left in our previous leaf
+		// so it'll be a leaf of the last node
+		// else it'll be a leaf of the previous node
+		if j != ls {
+			node.addLeaf(suffix, j, leaf.id)
+		} else if ls != 0 {
+			parent.addLeaf(suffix, j-1, leaf.id)
+		}
+		return
 	}
 }
 
@@ -178,9 +219,9 @@ func (n *Node) addLeaf(value string, index int, id int) {
 	leaf := Leaf{id, value[index], value[index+1:]}
 	if n.leafs == nil {
 		n.leafs = []Leaf{leaf}
-		return
+	} else {
+		n.leafs = append(n.leafs, leaf)
 	}
-	n.leafs = append(n.leafs, leaf)
 }
 
 func (n *Node) findLeaf(c byte) (Leaf, int) {
@@ -205,11 +246,12 @@ func (n *Node) deleteLeaf(c byte) {
 }
 
 func (n *Node) addNode(b byte) *Node {
-	if n.nodes == nil {
-		n.nodes = make([]*Node, 0, 1)
-	}
 	node := &Node{key: b}
-	n.nodes = append(n.nodes, node)
+	if n.nodes == nil {
+		n.nodes = []*Node{node}
+	} else {
+		n.nodes = append(n.nodes, node)
+	}
 	return node
 }
 
