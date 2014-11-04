@@ -57,7 +57,7 @@ func (t *Trie) Insert(value string, id int) {
 			suffix, value := leaf.suffix, value[i+1:]
 			lv := len(value)
 			if lv == 0 {
-				parent.leafs = append(parent.leafs, Leaf{id, c, ""})
+				parent.addLeaf("c", 0, id)
 				node.addLeaf(suffix, 0, leaf.id)
 				break
 			}
@@ -81,7 +81,7 @@ func (t *Trie) Insert(value string, id int) {
 			if parent.leafs == nil {
 				parent.leafs = make([]Leaf, 0, 1)
 			}
-			parent.leafs = append(parent.leafs, Leaf{id, c, value[i+1:]})
+			parent.addLeaf(value[i:], 0, id)
 		}
 		break
 	}
