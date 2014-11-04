@@ -44,7 +44,7 @@ func (t *Trie) Insert(value string, id int) {
 		if exists {
 			continue
 		}
-		if leaf, exists := parent.findLeaf(c); exists {
+		if leaf, index := parent.findLeaf(c); index != -1 {
 			if leaf.suffix == value[i+1:] {
 				leaf.id = id
 				break
@@ -60,7 +60,7 @@ func (t *Trie) Insert(value string, id int) {
 			suffix, value := leaf.suffix, value[i+1:]
 			lv := len(value)
 			if lv == 0 {
-				parent.addLeaf("c", 0, id)
+				parent.leafs[index] = Leaf{id, c, ""}
 				node.addLeaf(suffix, 0, leaf.id)
 				break
 			}
@@ -138,8 +138,8 @@ func (t *Trie) Find(prefix string) Result {
 		parent = node
 	}
 	if exists == false {
-		leaf, exists := parent.findLeaf(prefix[i])
-		if exists == false {
+		leaf, index := parent.findLeaf(prefix[i])
+		if index == -1 {
 			return EmptyResult
 		}
 		if strings.HasPrefix(leaf.suffix, prefix[i+1:]) {
@@ -152,7 +152,7 @@ func (t *Trie) Find(prefix string) Result {
 
 	result := t.results.Checkout()
 	if i == l {
-		if leaf, exists := grand.findLeaf(prefix[l-1]); exists && len(leaf.suffix) == 0 {
+		if leaf, index := grand.findLeaf(prefix[l-1]); index != -1 && len(leaf.suffix) == 0 {
 			result.Add(leaf.id)
 		}
 	}
@@ -175,20 +175,22 @@ func populate(node *Node, result *scratch.Ints) bool {
 }
 
 func (n *Node) addLeaf(value string, index int, id int) {
+	leaf := Leaf{id, value[index], value[index+1:]}
 	if n.leafs == nil {
-		n.leafs = make([]Leaf, 0, 1)
+		n.leafs = []Leaf{leaf}
+		return
 	}
-	n.leafs = append(n.leafs, Leaf{id, value[index], value[index+1:]})
+	n.leafs = append(n.leafs, leaf)
 }
 
-func (n *Node) findLeaf(c byte) (Leaf, bool) {
+func (n *Node) findLeaf(c byte) (Leaf, int) {
 	for i, l := 0, len(n.leafs); i < l; i++ {
 		leaf := n.leafs[i]
 		if leaf.key == c {
-			return leaf, true
+			return leaf, i
 		}
 	}
-	return noLeaf, false
+	return noLeaf, -1
 }
 
 func (n *Node) deleteLeaf(c byte) {
