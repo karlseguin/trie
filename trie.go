@@ -8,11 +8,12 @@ import (
 
 type Leaf struct {
 	id     int
+	key    byte
 	suffix string
 }
 
 type Node struct {
-	leafs map[byte]Leaf
+	leafs []Leaf
 	nodes map[byte]*Node
 }
 
@@ -40,7 +41,7 @@ func (t *Trie) Insert(value string, id int) {
 		if exists {
 			continue
 		}
-		if leaf, exists := parent.leafs[c]; exists {
+		if leaf, exists := parent.findLeaf(c); exists {
 			if leaf.suffix == value[i+1:] {
 				leaf.id = id
 				break
@@ -56,12 +57,11 @@ func (t *Trie) Insert(value string, id int) {
 			suffix, value := leaf.suffix, value[i+1:]
 			lv := len(value)
 			if lv == 0 {
-				parent.leafs[c] = Leaf{id, ""}
+				parent.leafs = append(parent.leafs, Leaf{id, c, ""})
 				node.addLeaf(suffix, 0, leaf.id)
 				break
 			}
-
-			delete(parent.leafs, c)
+			parent.deleteLeaf(c)
 			j := 0
 			for ; j < ls && j < lv && suffix[j] == value[j]; j++ {
 				parent = node
@@ -79,9 +79,9 @@ func (t *Trie) Insert(value string, id int) {
 			}
 		} else {
 			if parent.leafs == nil {
-				parent.leafs = make(map[byte]Leaf)
+				parent.leafs = make([]Leaf, 0, 1)
 			}
-			parent.leafs[c] = Leaf{id, value[i+1:]}
+			parent.leafs = append(parent.leafs, Leaf{id, c, value[i+1:]})
 		}
 		break
 	}
@@ -92,12 +92,30 @@ func (t *Trie) Dump() {
 }
 
 func Dump(n *Node, prefix string) {
-	for k, value := range n.leafs {
-		fmt.Println(prefix, string(k), "=>", value.suffix, value.id)
+	for _, value := range n.leafs {
+		fmt.Println(prefix, string(value.key), "=>", value.suffix, value.id)
 	}
 	for k, node := range n.nodes {
 		fmt.Println(prefix, string(k), "->")
 		Dump(node, prefix+"   ")
+	}
+}
+func (t *Trie) Stats() {
+	stats := make(map[int]int)
+	Stats(t.root, stats)
+	for k, v := range stats {
+		fmt.Println(k, v)
+	}
+}
+
+func Stats(n *Node, stats map[int]int) {
+	leafs := len(n.nodes)
+	if _, exists := stats[leafs]; exists == false {
+		stats[leafs] = 0
+	}
+	stats[leafs] += 1
+	for _, node := range n.nodes {
+		Stats(node, stats)
 	}
 }
 
@@ -117,7 +135,7 @@ func (t *Trie) Find(prefix string) Result {
 		parent = node
 	}
 	if exists == false {
-		leaf, exists := parent.leafs[prefix[i]]
+		leaf, exists := parent.findLeaf(prefix[i])
 		if exists == false {
 			return EmptyResult
 		}
@@ -131,7 +149,7 @@ func (t *Trie) Find(prefix string) Result {
 
 	result := t.results.Checkout()
 	if i == l {
-		if leaf, exists := grand.leafs[prefix[l-1]]; exists && len(leaf.suffix) == 0 {
+		if leaf, exists := grand.findLeaf(prefix[l-1]); exists && len(leaf.suffix) == 0 {
 			result.Add(leaf.id)
 		}
 	}
@@ -155,9 +173,31 @@ func populate(node *Node, result *scratch.Ints) bool {
 
 func (n *Node) addLeaf(value string, index int, id int) {
 	if n.leafs == nil {
-		n.leafs = make(map[byte]Leaf)
+		n.leafs = make([]Leaf, 0, 1)
 	}
-	n.leafs[value[index]] = Leaf{id, value[index+1:]}
+	n.leafs = append(n.leafs, Leaf{id, value[index], value[index+1:]})
+}
+
+
+func (n *Node) findLeaf(c byte) (Leaf, bool) {
+	for i, l := 0, len(n.leafs); i < l; i++ {
+		leaf := n.leafs[i]
+		if leaf.key == c {
+			return leaf, true
+		}
+	}
+	return Leaf{}, false
+}
+
+func (n *Node) deleteLeaf(c byte) {
+	for i, l := 0, len(n.leafs); i < l; i++ {
+		leaf := n.leafs[i]
+		if leaf.key == c {
+			n.leafs[i] = n.leafs[l-1]
+			n.leafs = n.leafs[:l-1]
+			return
+		}
+	}
 }
 
 func (n *Node) addNode(b byte) *Node {
