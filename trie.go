@@ -9,7 +9,7 @@ import (
 var noLeaf = Leaf{}
 
 type Leaf struct {
-	id     int
+	ids    []int
 	key    byte
 	suffix string
 }
@@ -58,7 +58,8 @@ func (t *Trie) Insert(value string, id int) {
 
 		// TODO: an exact leaf already exists, append, don't replace!
 		if leaf.suffix == value[i+1:] {
-			leaf.id = id
+			leaf.addId(id)
+			parent.leafs[index] = leaf
 			return
 		}
 
@@ -78,16 +79,16 @@ func (t *Trie) Insert(value string, id int) {
 			return
 		}
 
-    // our new value is at a word-stop
-    // this is the opposite of the previous case
-    // the previous leaf goes into a node, we become the new leaf
+		// our new value is at a word-stop
+		// this is the opposite of the previous case
+		// the previous leaf goes into a node, we become the new leaf
 		// "upside", "up"
 		// (the end-result is the same as the above)
 		suffix, value := leaf.suffix, value[i+1:]
 		lv := len(value)
 		if lv == 0 {
-			parent.leafs[index] = Leaf{id, c, ""}
-			node.addLeaf(suffix, 0, leaf.id)
+			parent.leafs[index] = Leaf{[]int{id}, c, ""}
+			node.assumeLeaf(suffix, 0, leaf.ids)
 			return
 		}
 
@@ -123,9 +124,9 @@ func (t *Trie) Insert(value string, id int) {
 		// so it'll be a leaf of the last node
 		// else it'll be a leaf of the previous node
 		if j != ls {
-			node.addLeaf(suffix, j, leaf.id)
+			node.assumeLeaf(suffix, j, leaf.ids)
 		} else if ls != 0 {
-			parent.addLeaf(suffix, j-1, leaf.id)
+			parent.assumeLeaf(suffix, j-1, leaf.ids)
 		}
 		return
 	}
@@ -137,29 +138,11 @@ func (t *Trie) Dump() {
 
 func Dump(n *Node, prefix string) {
 	for _, value := range n.leafs {
-		fmt.Println(prefix, string(value.key), "=>", value.suffix, value.id)
+		fmt.Println(prefix, string(value.key), "=>", value.suffix, value.ids)
 	}
 	for _, node := range n.nodes {
 		fmt.Println(prefix, string(node.key), "->")
 		Dump(node, prefix+"   ")
-	}
-}
-func (t *Trie) Stats() {
-	stats := make(map[int]int)
-	Stats(t.root, stats)
-	for k, v := range stats {
-		fmt.Println(k, v)
-	}
-}
-
-func Stats(n *Node, stats map[int]int) {
-	leafs := cap(n.nodes)
-	if _, exists := stats[leafs]; exists == false {
-		stats[leafs] = 0
-	}
-	stats[leafs] += 1
-	for _, node := range n.nodes {
-		Stats(node, stats)
 	}
 }
 
@@ -171,6 +154,8 @@ func (t *Trie) Find(prefix string) Result {
 	node, exists := t.root, false
 	grand, parent := node, node
 	i, l := 0, len(prefix)
+	// keep walking down until we run out of nodes to visit
+	// or we've examined each rune of our prefix
 	for ; i < l; i++ {
 		if node, exists = node.findNode(prefix[i]); exists == false {
 			break
@@ -178,32 +163,40 @@ func (t *Trie) Find(prefix string) Result {
 		grand, parent = parent, node
 		parent = node
 	}
+
+	// we hit a dead end
+	// the last node might have had a leaf that matches
 	if exists == false {
 		leaf, index := parent.findLeaf(prefix[i])
 		if index == -1 {
 			return EmptyResult
 		}
+		// yes, yes it does have a matchin leaf!
 		if strings.HasPrefix(leaf.suffix, prefix[i+1:]) {
 			result := t.results.Checkout()
-			result.Add(leaf.id)
+			addIds(result, leaf.ids)
 			return result
 		}
 		return EmptyResult
 	}
 
 	result := t.results.Checkout()
-	if i == l {
-		if leaf, index := grand.findLeaf(prefix[l-1]); index != -1 && len(leaf.suffix) == 0 {
-			result.Add(leaf.id)
+	// we hit the end of the prefix
+	// but it's possible our grandparent had a matching leaf
+	if leaf, index := grand.findLeaf(prefix[l-1]); index != -1 && len(leaf.suffix) == 0 {
+		if addIds(result, leaf.ids) == false {
+			return result
 		}
 	}
 	populate(node, result)
 	return result
 }
 
+// recurse from a node, adding every id that we find in a leaf to our result
+// until the result can hold no more
 func populate(node *Node, result *scratch.Ints) bool {
 	for _, leaf := range node.leafs {
-		if result.Add(leaf.id) == false {
+		if addIds(result, leaf.ids) == false {
 			return false
 		}
 	}
@@ -216,7 +209,16 @@ func populate(node *Node, result *scratch.Ints) bool {
 }
 
 func (n *Node) addLeaf(value string, index int, id int) {
-	leaf := Leaf{id, value[index], value[index+1:]}
+	leaf := Leaf{[]int{id}, value[index], value[index+1:]}
+	if n.leafs == nil {
+		n.leafs = []Leaf{leaf}
+	} else {
+		n.leafs = append(n.leafs, leaf)
+	}
+}
+
+func (n *Node) assumeLeaf(value string, index int, ids []int) {
+	leaf := Leaf{ids, value[index], value[index+1:]}
 	if n.leafs == nil {
 		n.leafs = []Leaf{leaf}
 	} else {
@@ -263,4 +265,21 @@ func (n *Node) findNode(c byte) (*Node, bool) {
 		}
 	}
 	return nil, false
+}
+
+func (l *Leaf) addId(id int) {
+	if l.ids == nil {
+		l.ids = []int{id}
+		return
+	}
+	l.ids = append(l.ids, id)
+}
+
+func addIds(result *scratch.Ints, ids []int) bool {
+	for _, id := range ids {
+		if result.Add(id) == false {
+			return false
+		}
+	}
+	return true
 }

@@ -56,6 +56,22 @@ func (_ *TrieTests) Unicode() {
 	assertResult(t, "☺", "smile", 4)
 }
 
+func (_ *TrieTests) MultipleIds() {
+	t := New(Configure())
+	t.Insert("hello", 1)
+	t.Insert("hello", 2)
+	t.Insert("hello", 3)
+	t.Insert("happy", 4)
+	t.Insert("happy", 5)
+	t.Insert("hacks", 6)
+	assertResult(t, "", "h", 1, 2, 3, 4, 5, 6)
+	assertResult(t, "h", "ello", 1, 2, 3)
+	assertResult(t, "ha", "", 4, 5, 6)
+	assertResult(t, "ha", "ppy", 4, 5)
+	assertResult(t, "ha", "cks", 6)
+
+}
+
 func Benchmark_Load(b *testing.B) {
 	trie := New(Configure())
 	for i := 0; i < b.N; i++ {
