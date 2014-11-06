@@ -10,7 +10,7 @@ type Configuration struct {
 func Configure() *Configuration {
 	return &Configuration{
 		maxResults:      20,
-		resultPoolCount: 32,
+		resultPoolCount: 16,
 	}
 }
 
@@ -27,7 +27,7 @@ func (c *Configuration) MaxResults(max int) *Configuration {
 // Find(prefix string) use a result pool to minimize the amount of
 // allocations needed. This is the number of available results in the
 // pool. (The pool won't block when drained)
-// default: 32
+// default: 16
 func (c *Configuration) ResultPoolCount(count int) *Configuration {
 	c.resultPoolCount = count
 	return c
